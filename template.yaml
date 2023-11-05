@@ -1,0 +1,98 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  attack_on_titan_on_bedrock
+
+Globals:
+  Function:
+    Timeout: 60
+    MemorySize: 1024
+
+Parameters:
+  LineChannelAccessToken:
+    Type: String
+  LineChannelSecret:
+    Type: String
+  NumOfHistory:
+    Type: String
+    Default: '10'
+  FoundationModel:
+    Type: String
+    AllowedValues:
+      - anthropic.claude-v2
+      - anthropic.claude-v1
+      - anthropic.claude-instant-v1
+    Default: anthropic.claude-instant-v1
+
+Resources:
+  LibraryLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      ContentUri: layer/library
+      CompatibleRuntimes:
+        - python3.10
+    Metadata:
+      BuildMethod: python3.10
+  LineBotFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: hello_world/
+      Handler: app.lambda_handler
+      Runtime: python3.10
+      Layers:
+        - !Ref LibraryLayer
+      Architectures:
+        - x86_64
+      FunctionUrlConfig:
+        AuthType: NONE
+      Environment:
+        Variables:
+          LINE_CHANNEL_ACCESS_TOKEN: !Ref LineChannelAccessToken
+          LINE_CHANNEL_SECRET: !Ref LineChannelSecret
+          NUM_OF_HISTORY: !Ref NumOfHistory
+          FOUNDATION_MODEL: !Ref FoundationModel
+          DYNAMODB_TABLE_NAME: !Ref DynamoDBTable
+      Role: !GetAtt LineBotFunctionRole.Arn
+    Connectors:
+      DynamoDBConnector:
+        Properties:
+          Destination:
+            Id: DynamoDBTable
+          Permissions:
+            - Read
+            - Write
+  LineBotFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: LineBotFunctionRolePolicy0
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: 'bedrock:*'
+                Resource: '*'
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties: 
+      AttributeDefinitions: 
+        - AttributeName: SessionId
+          AttributeType: S
+      KeySchema: 
+        - AttributeName: SessionId
+          KeyType: HASH
+      BillingMode: PAY_PER_REQUEST
+
+Outputs:
+  FunctionUrl:
+    Value:
+      Fn::GetAtt: LineBotFunctionUrl.FunctionUrl

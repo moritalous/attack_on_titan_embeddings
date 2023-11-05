@@ -1,0 +1,4 @@
+boto3
+langchain==0.0.325
+line-bot-sdk
+qdrant-client
