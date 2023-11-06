@@ -7,7 +7,9 @@ from langchain.embeddings import BedrockEmbeddings
 from langchain.llms.bedrock import Bedrock
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.memory.chat_message_histories import DynamoDBChatMessageHistory
+from langchain.prompts.prompt import PromptTemplate
 from langchain.vectorstores.qdrant import Qdrant
+
 from qdrant_client import QdrantClient
 
 from linebot.v3 import (WebhookHandler)
@@ -35,9 +37,20 @@ llm = Bedrock(model_id=FOUNDATION_MODEL, model_kwargs={'max_tokens_to_sample': 2
 
 db = Qdrant(client=QdrantClient(path="/tmp/shingeki_qdrant"), embeddings=embeddings, collection_name="shingeki")
 
+_template = """Given the following conversation and a follow up question, rephrase the follow up question to be a standalone question, in its original language.
+
+Chat History:
+<history>
+{chat_history}
+</history>
+Follow Up Input: {question}
+Standalone question:"""
+CONDENSE_QUESTION_PROMPT = PromptTemplate.from_template(_template)
+
 qa = ConversationalRetrievalChain.from_llm(
   llm=llm,
   chain_type='stuff',
+  condense_question_prompt=CONDENSE_QUESTION_PROMPT, 
   retriever=db.as_retriever(),
   verbose=True
 )
@@ -88,7 +101,7 @@ def conversation(input: str, session_id: str) -> str:
 
         qa.memory = memory
 
-        result = qa.invoke(input=f'{input}')
+        result = qa.invoke(input=f'進撃の巨人に関する質問です。{input}')
 
         return result['answer']
 
