@@ -88,7 +88,7 @@ def conversation(input: str, session_id: str) -> str:
 
         qa.memory = memory
 
-        result = qa.invoke(input=f'進撃の巨人に関する質問です。{input}')
+        result = qa.invoke(input=f'{input}')
 
         return result['answer']
 
